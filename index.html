@@ -26,6 +26,42 @@
 
 <h3>Deskripsi</h3>
 <p>
-    Ekspor 2 Group Whatsapp menjadi sebuah file teks, dan memilih Group Whatsapp yang memiliki comments paling banyak.
+    Ekspor 2 Group Whatsapp menjadi sebuah file teks, dan memilih Group Whatsapp yang memiliki comments paling banyak.Tugas ini melakukan pembersihan data dengan hanya mengambil angka, huruf dan tanda baca-tulis umum.
 </p>
 
+<h3>Alur Pengerjaannya</h3>
+<h4>1. melakukan eksport data pada 2 Group Whatsapp</h4>
+<p>Export konten beberapa group Whatsapp Anda menjadi sebuah file teks(txt)</p>
+
+<h4>2. melakukan pembersihan data pada file 2 Group Whatsapp</h4>
+<pre><code>def clean_text(text):
+    if not isinstance(text, str):  # Pastikan input adalah string
+        return ''
+    # Hanya menyimpan angka, huruf, spasi, dan tanda baca umum
+    cleaned = re.sub(r'[^a-zA-Z0-9\s.,!?;:\'"-]', '', text)
+    return cleaned.strip()
+
+# Bersihkan isi pesan
+data_clean.loc[:, 'cleaned_message'] = data_clean['message'].apply(clean_text)
+</code></pre>
+
+<h4>3. mengompresi file CSV</h4> <p>File <code>data_group.csv</code> dikompresi menjadi <code>data_group.tar.gz</code> menggunakan pustaka <code>tarfile</code></p></h4>
+ 
+<pre><code>with tarfile.open(tar_file, 'w:gz') as tar:
+    tar.add(directory_to_compress, arcname='data_group.csv')</code></pre>
+
+<h4>4. melakukan clustering dengan algoritma K-Means</h4> <p>Proses clustering dilakukan dengan mengubah teks menjadi fitur numerik menggunakan <code>CountVectorizer</code>, lalu menerapkan algoritma K-Means dengan berbagai nilai k.</p></h4>
+<pre><code>from sklearn.feature_extraction.text import CountVectorizer
+    from sklearn.cluster import KMeans
+    
+    # Vektorisasi teks
+    vectorizer = CountVectorizer()
+    X = vectorizer.fit_transform(df['Message'])
+    
+    # Clustering
+    kmeans = KMeans(n_clusters=3, random_state=42)
+    kmeans.fit(X)
+    
+    # Hasil clustering
+    df['Cluster'] = kmeans.labels_
+    df.to_csv('clustered_data.csv', index=False)</code></pre>
