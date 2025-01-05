@@ -1,4 +1,6 @@
-from metaflow import FlowSpec, step, Parameter, resources, profile
+from metaflow import FlowSpec, step, Parameter, resources
+from collections import Counter
+import numpy as np
 
 class ManyKmeansFlow(FlowSpec):
 
@@ -30,10 +32,6 @@ class ManyKmeansFlow(FlowSpec):
     @step
     def analyze(self):
         print(f"Analyzing results for k={self.k}")
-        from collections import Counter
-        import numpy as np
-
-        # Mendapatkan cluster-label hasil KMeans
         clusters = self.kmeans_output
         cluster_docs = {i: [] for i in range(self.k)}
 
@@ -49,14 +47,13 @@ class ManyKmeansFlow(FlowSpec):
                 # Ambil dokumen dari matriks
                 word_counts.update(self.mtx[doc_idx].nonzero()[1])
 
-            # Mapping word indices ke kata
-            words = [self.cols[word_idx] for word_idx, _ in word_counts.most_common(3)]
-            top_words_per_cluster[cluster_id] = words
+            # Mapping word indices ke kata beserta frekuensinya
+            words_with_freq = [(self.cols[word_idx], count) for word_idx, count in word_counts.most_common(3)]
+            top_words_per_cluster[cluster_id] = words_with_freq
 
         self.top_words = top_words_per_cluster
         print(f"Top words for k={self.k}: {self.top_words}")
-        self.next(self.join)
-
+        self.next(self.join)  # Transisi ke join
 
     @step
     def join(self, inputs):
@@ -67,14 +64,16 @@ class ManyKmeansFlow(FlowSpec):
     @step
     def end(self):
         print("Step: End - Flow completed")
+        
+        # Menampilkan hasil ke layar
         print("Top words for each k:")
         for k, clusters in self.top.items():
             print(f"For k={k}:")
             for cluster_id, words in clusters.items():
-                print(f"  Cluster {cluster_id}: {', '.join(words)}")
+                print(f"  Cluster {cluster_id}: {words}")
+        
+        # Analisis hasil
         print("Analysis: Clustering results indicate that...")
-        # Tambahkan analisis di sini
 
-
-if __name__ == '__main__':
+if _name_ == '_main_':
     ManyKmeansFlow()

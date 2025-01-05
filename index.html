@@ -2,6 +2,8 @@
 <h1>NIM : L200220232</h1>
 <h1>Kelas : D</h1>
 
+
+
 <h2>Tugas UTS</h2>
 <h3>Tugas Perkuliahan Menggunakan Metaflow</h3>
 
@@ -26,7 +28,7 @@
 
 <h3>Deskripsi</h3>
 <p>
-    Ekspor 2 Group Whatsapp menjadi sebuah file teks, dan memilih Group Whatsapp yang memiliki comments paling banyak.Tugas ini melakukan pembersihan data dengan hanya mengambil angka, huruf dan tanda baca-tulis umum.
+    Ekspor 2 Group Whatsapp menjadi sebuah file teks, dan memilih Group Whatsapp yang memiliki comments paling banyak. Tugas ini melakukan pembersihan data dengan hanya mengambil angka, huruf dan tanda baca-tulis umum.
 </p>
 
 <h3>Alur Pengerjaannya</h3>
@@ -65,3 +67,96 @@ data_clean.loc[:, 'cleaned_message'] = data_clean['message'].apply(clean_text)
     # Hasil clustering
     df['Cluster'] = kmeans.labels_
     df.to_csv('clustered_data.csv', index=False)</code></pre>
+
+<h4>5. Implementasi Metaflow</h4>
+<p>Untuk menjalankan algoritma K-Means dalam bentuk workflow, digunakan Metaflow. Workflow ini memungkinkan eksperimen dengan berbagai nilai k (jumlah cluster) dan mengelola hasil clustering dengan lebih terstruktur. Berikut adalah rangkaian langkah yang dilakukan dalam Metaflow:</p>
+<ul>
+    <li>Langkah pertama memuat data dan membuat matriks fitur dari data WhatsApp.</li>
+    <li>Setiap nilai k (3, 4, 5) diuji dengan melatih model K-Means dan menghasilkan label cluster.</li>
+    <li>Setelah itu, dilakukan analisis terhadap hasil clustering dengan menemukan kata-kata teratas per cluster.</li>
+    <li>Hasil analisis disusun dan disimpan dalam file output yang kemudian ditampilkan pada layar.</li>
+</ul>
+<pre><code>
+    from metaflow import FlowSpec, step, Parameter, resources
+    from collections import Counter
+    import numpy as np
+    
+    class ManyKmeansFlow(FlowSpec):
+    
+        num_docs = Parameter('num-docs', help='Number of documents', default=1000)
+    
+        @resources(memory=4000)
+        @step
+        def start(self):
+            import scale_data
+            docs = scale_data.load_yelp_reviews(self.num_docs)
+            self.mtx, self.cols = scale_data.make_matrix(docs)
+            self.k_params = list(range(3, 6, 1))
+            self.next(self.train_kmeans, foreach='k_params')
+    
+        @step
+        def train_kmeans(self):
+            from sklearn.cluster import KMeans
+            self.k = self.input
+            kmeans_model = KMeans(n_clusters=self.k)
+            kmeans_model.fit(self.mtx)
+            self.kmeans_output = kmeans_model.labels_
+            self.next(self.analyze)
+    
+        @step
+        def analyze(self):
+            clusters = self.kmeans_output
+            cluster_docs = {i: [] for i in range(self.k)}
+            for doc_idx, cluster_id in enumerate(clusters):
+                cluster_docs[cluster_id].append(doc_idx)
+    
+            top_words_per_cluster = {}
+            for cluster_id, doc_indices in cluster_docs.items():
+                word_counts = Counter()
+                for doc_idx in doc_indices:
+                    word_counts.update(self.mtx[doc_idx].nonzero()[1])
+    
+                words_with_freq = [(self.cols[word_idx], count) for word_idx, count in word_counts.most_common(3)]
+                top_words_per_cluster[cluster_id] = words_with_freq
+    
+            self.top_words = top_words_per_cluster
+            self.next(self.join)
+    
+        @step
+        def join(self, inputs):
+            self.top = {inp.k: inp.top_words for inp in inputs}
+            self.next(self.end)
+    
+        @step
+        def end(self):
+            with open('output.txt', 'w') as f:
+                for k, clusters in self.top.items():
+                    f.write(f"For k={k}:\n")
+                    for cluster_id, words in clusters.items():
+                        f.write(f" Cluster {cluster_id}: {words}\n")
+    
+            print("Top words for each k:")
+            for k, clusters in self.top.items():
+                print(f"For k={k}:")
+                for cluster_id, words in clusters.items():
+                    print(f" Cluster {cluster_id}: {words}")
+            print("Analysis: Clustering results indicate that...")
+</code></pre>
+
+<h4>6. menampilkan menggunakan jupyter</h4>
+<p>dengan menggunakan jupter nootbook </p>
+
+<pre><code>
+    from metaflow import Flow
+    run = Flow("ManyKmeansFlow").latest_run
+    
+    k3 = run.data.top[3]
+    k4 = run.data.top[4]
+    k5 = run.data.top[5]
+    
+    print(f"cluster 3: {k3[0][:3]}")
+    print(f"cluster 4: {k4[0][:3]}")
+    print(f"cluster 5: {k5[0][:3]}")
+</code></pre>
+<image src="image hasil.jpeg"/>
+    
